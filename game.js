@@ -3,13 +3,17 @@ const pauseMenu = document.getElementById('pause-menu');
 const resumeButton = document.getElementById('resume');
 const restartButton = document.getElementById('restart');
 
+const ENEMY_SPEED = 5;
+const PLAYER_SPEED = 5;
 let player;
 let enemies = [];
 let bullets = [];
 let isPaused = false;
 let animationFrameId;
+let enemyDirection = 1; // from lefgt to right
+let hOffset = 0;
+let playerDirection = 0;
 
-// Создание игрока
 function createPlayer() {
     player = document.createElement('div');
     player.classList.add('player');
@@ -18,7 +22,7 @@ function createPlayer() {
     game.appendChild(player);
 }
 
-// Создание врага
+
 function createEnemy(x, y) {
     const enemy = document.createElement('div');
     enemy.classList.add('enemy');
@@ -28,9 +32,9 @@ function createEnemy(x, y) {
     enemies.push(enemy);
 }
 
-// Создание пули
+
 function createBullet(x, y) {
-    console.log(x,y)
+    console.log(x, y)
     const bullet = document.createElement('div');
     bullet.classList.add('bullet');
     bullet.style.left = `${x}px`;
@@ -39,7 +43,7 @@ function createBullet(x, y) {
     bullets.push(bullet);
 }
 
-// Движение пуль
+
 function moveBullets() {
     bullets.forEach((bullet, index) => {
         const bottom = parseInt(bullet.style.bottom, 10);
@@ -48,23 +52,41 @@ function moveBullets() {
             console.log('bullet removed at ', window.innerHeight)
             bullet.remove();
             bullets.splice(index, 1);
-          }
-    });
-}
-
-// Движение врагов
-function moveEnemies() {
-    var direction = 1;
-    enemies.forEach(enemy => {
-        const left = parseInt(enemy.style.left, 10);
-        enemy.style.left = `${left + direction}px`;
-        if (enemy.style.left > window.innerWidth) { // меняем направление, если вышли за пределы экрана
-            direction = -1
         }
     });
 }
 
-// Проверка столкновений
+
+function moveEnemies() {
+    let needChangeDirection = false;
+
+    enemies.forEach(enemy => {
+        const left = parseInt(enemy.style.left, 10);
+        const top = parseInt(enemy.style.top, 10);
+
+        if (top + hOffset > window.innerHeight - 80) {
+            cancelAnimationFrame(animationFrameId);
+            alert('You lost!');
+            restartGame();
+            return;
+        }
+
+        if (left + enemyDirection * ENEMY_SPEED > window.innerWidth - 40 || left + enemyDirection * ENEMY_SPEED < 0) {
+            needChangeDirection = true;
+        }
+        enemy.style.left = `${left + enemyDirection * ENEMY_SPEED}px`;
+        enemy.style.top = `${top + hOffset}px`;
+    });
+
+    if (needChangeDirection) {
+        enemyDirection *= -1;
+        hOffset = 30;
+    } else {
+        hOffset = 0;
+    }
+}
+
+
 function checkCollisions() {
     bullets.forEach((bullet, bulletIndex) => {
         const bulletRect = bullet.getBoundingClientRect();
@@ -81,19 +103,33 @@ function checkCollisions() {
             }
         });
     });
+    if (enemies.length === 0) {
+        alert('You win!');
+        restartGame();
+    }
 }
 
-// Основной игровой цикл
+
 function gameLoop() {
     if (!isPaused) {
         moveBullets();
         moveEnemies();
         checkCollisions();
+        movePlayer();
     }
     animationFrameId = requestAnimationFrame(gameLoop);
 }
 
-// Запуск игры
+function movePlayer() {
+    if (player) {
+        const left = parseInt(player.style.left, 10);
+        const newPosition = left + (playerDirection * PLAYER_SPEED);
+        if (newPosition >= 0 && newPosition <= window.innerWidth - 40) {
+            player.style.left = `${newPosition}px`;
+        }
+    }
+}
+
 function startGame() {
     createPlayer();
     for (let i = 0; i < 10; i++) {
@@ -102,13 +138,12 @@ function startGame() {
     gameLoop();
 }
 
-// Пауза игры
+
 function pauseGame() {
     isPaused = true;
     pauseMenu.style.display = 'block';
 }
 
-// Возобновление игры
 function resumeGame() {
     isPaused = false;
     pauseMenu.style.display = 'none';
@@ -118,7 +153,9 @@ function resumeGame() {
 function restartGame() {
     isPaused = false;
     pauseMenu.style.display = 'none';
-    game.innerHTML = '';
+    //game.innerHTML = '';
+    player.remove();
+    enemies.forEach((enemy) => enemy.remove())
     enemies = [];
     bullets = [];
     startGame();
@@ -127,11 +164,9 @@ function restartGame() {
 // Обработка нажатий клавиш
 document.addEventListener('keydown', (e) => {
     if (e.key === 'ArrowLeft') {
-        const left = parseInt(player.style.left, 10);
-        player.style.left = `${Math.max(left - 10, 0)}px`; // Движение влево с ограничением
+        playerDirection = -1;
     } else if (e.key === 'ArrowRight') {
-        const left = parseInt(player.style.left, 10);
-        player.style.left = `${Math.min(left + 10, window.innerWidth - 40)}px`; // Движение вправо с ограничением
+        playerDirection = 1;
     } else if (e.key === ' ') { // Пробел для стрельбы
         console.log('Space pressed')
         const playerRect = player.getBoundingClientRect();
@@ -142,6 +177,13 @@ document.addEventListener('keydown', (e) => {
         } else {
             pauseGame();
         }
+    }
+});
+
+document.addEventListener('keyup', (e) => {
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        playerDirection = 0;
+
     }
 });
 
