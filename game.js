@@ -5,7 +5,7 @@ const restartButton = document.getElementById('restart');
 
 // Определяем константы в начале
 const PLAYER_SPEED = 5;
-const LEVEL_TIME = 60; // 60 seconds per level
+
 
 // Изменим конфигурацию уровней - всегда 10 врагов, но разная скорость
 const LEVELS = {
@@ -30,7 +30,8 @@ let gameData = {
     score: 0,
     lives: 3,
     level: 1,
-    gameTime: 0
+    gameTime: 0,
+    status: 'alive'
 };
 let gameState = {
     level: 1,
@@ -49,7 +50,6 @@ function createPlayer() {
     game.appendChild(player);
 }
 
-
 function createEnemy(x, y) {
     const enemy = document.createElement('div');
     enemy.classList.add('enemy');
@@ -58,7 +58,6 @@ function createEnemy(x, y) {
     game.appendChild(enemy);
     enemies.push(enemy);
 }
-
 
 function createBullet(x, y) {
     console.log(x, y)
@@ -69,7 +68,6 @@ function createBullet(x, y) {
     game.appendChild(bullet);
     bullets.push(bullet);
 }
-
 
 function moveBullets() {
     bullets.forEach((bullet, index) => {
@@ -83,40 +81,16 @@ function moveBullets() {
     });
 }
 
-
 function moveEnemies() {
     let needChangeDirection = false;
-
     enemies.forEach(enemy => {
         const left = parseInt(enemy.style.left, 10);
         const top = parseInt(enemy.style.top, 10);
 
         if (top + hOffset > window.innerHeight - 80) {
-            // Останавливаем игровой цикл
-            cancelAnimationFrame(animationFrameId);
-            
             // Уменьшаем жизни
             gameData.lives--;
-            updateHUD();
-            
-            if (gameData.lives <= 0) {
-                // Если жизней не осталось - Game Over
-                alert('Game Over!');
-                
-                // Полный сброс игры
-                isPaused = false;
-                gameData = {
-                    score: 0,
-                    lives: 3,
-                    level: 1,
-                    gameTime: 0
-                };
-                startLevel(1);
-            } else {
-                // Если жизни остались - перезапускаем уровень
-                alert(`You lost a life! Lives left: ${gameData.lives}`);
-                startLevel(gameData.level);
-            }
+            gameData.status = 'dead';
             return;
         }
 
@@ -150,25 +124,59 @@ function checkCollisions() {
                 bullets.splice(bulletIndex, 1);
                 enemies.splice(enemyIndex, 1);
                 gameData.score += 100;
-                updateHUD();
             }
         });
     });
-    
+}
+
+
+function movePlayer() {
+    if (player) {
+        const left = parseInt(player.style.left, 10);
+        const newPosition = left + (playerDirection * PLAYER_SPEED);
+        if (newPosition >= 0 && newPosition <= window.innerWidth - 40) {
+            player.style.left = `${newPosition}px`;
+        }
+    }
+}
+
+function checkGameStatus() {
+    if (gameData.lives <= 0) {
+        // Если жизней не осталось - Game Over
+        alert('Game Over!');
+
+        // Полный сброс игры
+        isPaused = false;
+        gameData = {
+            score: 0,
+            lives: 3,
+            level: 1,
+            gameTime: 0,
+            status: 'alive'
+        };
+        startLevel(1);
+    } else if (gameData.status === 'dead') {
+        // Если жизни остались - перезапускаем уровень
+        alert(`You lost a life! Lives left: ${gameData.lives}`);
+        gameData.status = 'alive'
+        startLevel(gameData.level);
+    }
+
     if (enemies.length === 0) {
         // Останавливаем игровой цикл
         cancelAnimationFrame(animationFrameId);
-        
+
         if (gameData.level >= Object.keys(LEVELS).length) {
             // Если прошли все уровни
             alert('Congratulations! You have completed the game!');
-            
+
             // Полный сброс игры
             gameData = {
                 score: 0,
                 lives: 3,
                 level: 1,
-                gameTime: 0
+                gameTime: 0,
+                status: 'alive'
             };
             startLevel(1);
         } else {
@@ -178,8 +186,16 @@ function checkCollisions() {
             startLevel(gameData.level);
         }
     }
-}
 
+    // Check for game-ending conditions
+    if (gameData.lives <= 0) {
+        isPaused = true;
+        alert('Game Over!');
+        resetGame();
+        return;
+    }
+    
+}
 
 function gameLoop(timestamp) {
     const deltaTime = lastFrameTime ? (timestamp - lastFrameTime) / 1000 : 0;
@@ -197,30 +213,24 @@ function gameLoop(timestamp) {
     if (!isPaused) {
         gameData.gameTime += deltaTime;
         updateHUD();
-        
         moveBullets();
         moveEnemies();
         checkCollisions();
+        if (checkGameStatus() === 'stop') {
+            cancelAnimationFrame(animationFrameId);
+            pauseGame();
+        }
         movePlayer();
     }
 
     animationFrameId = requestAnimationFrame(gameLoop);
 }
 
-function movePlayer() {
-    if (player) {
-        const left = parseInt(player.style.left, 10);
-        const newPosition = left + (playerDirection * PLAYER_SPEED);
-        if (newPosition >= 0 && newPosition <= window.innerWidth - 40) {
-            player.style.left = `${newPosition}px`;
-        }
-    }
-}
 
 function createHUD() {
     const oldHud = document.getElementById('hud');
     if (oldHud) oldHud.remove();
-    
+
     const hud = document.createElement('div');
     hud.id = 'hud';
     hud.innerHTML = `
@@ -240,30 +250,31 @@ function startLevel(level) {
     bullets.forEach(bullet => bullet.remove());
     enemies = [];
     bullets = [];
-    
+
     // Установка уровня
     gameData.level = level;
-    
+
     // Создание игровых элементов
     createPlayer();
-    
+
     // Получаем конфигурацию текущего уровня
     const levelConfig = LEVELS[level] || LEVELS[1];
-    
+
     // Создаем врагов
     for (let i = 0; i < 10; i++) {
         createEnemy(i * 40, 50);
     }
-    
+
     // Устанавливаем скорость врагов
     ENEMY_SPEED = levelConfig.speed;
-    
+
     // Обновляем HUD
     createHUD();
-    
+
     // Запускаем игровой цикл
     lastFrameTime = 0;
     gameLoop();
+    //requestAnimationFrame(gameLoop);
 }
 
 function pauseGame() {
@@ -280,10 +291,10 @@ function resumeGame() {
 // Перезапуск игры
 function restartGame(nextLevel = false) {
     if (gameState.isRestarting) return;
-    
+
     gameState.isRestarting = true;
     cancelAnimationFrame(animationFrameId);
-    
+
     isPaused = false;
     pauseMenu.style.display = 'none';
     player.remove();
@@ -291,7 +302,7 @@ function restartGame(nextLevel = false) {
     bullets.forEach((bullet) => bullet.remove());
     enemies = [];
     bullets = [];
-    
+
     if (nextLevel) {
         startLevel(gameData.level + 1);
     } else {
@@ -342,23 +353,18 @@ restartButton.addEventListener('click', resetGame);
 function resetGame() {
     // Останавливаем игровой цикл
     cancelAnimationFrame(animationFrameId);
-    
+
     // Сбрасываем все данные
     gameData = {
         score: 0,
         lives: 3,
         level: 1,
-        gameTime: 0
+        gameTime: 0,
+        status: 'alive'
     };
-    
+
     // Запускаем первый уровень
     startLevel(1);
 }
 
-// Добавим функцию startGame для совместимости
-function startGame() {
-    resetGame();
-}
-
-// Запуск игры при загрузке страницы
-startGame();
+resetGame();
