@@ -5,7 +5,7 @@ const restartButton = document.getElementById('restart');
 
 // Определяем константы в начале
 const PLAYER_SPEED = 5;
-
+const SHOOT_COOLDOWN = 200; // 200 ms between player shoots
 
 // Изменим конфигурацию уровней - всегда 10 врагов, но разная скорость
 const LEVELS = {
@@ -21,6 +21,8 @@ let ENEMY_SPEED = 5;
 let player;
 let enemies = [];
 let bullets = [];
+let lastShootTime;
+let isShooting = false;
 let isPaused = false;
 let animationFrameId;
 let enemyDirection = 1; // from lefgt to right
@@ -31,7 +33,6 @@ let gameData = {
     lives: 3,
     level: 1,
     gameTime: 0,
-    status: 'alive'
 };
 let gameState = {
     level: 1,
@@ -69,6 +70,15 @@ function createBullet(x, y) {
     bullets.push(bullet);
 }
 
+function shoot() {
+    const currentTime = Date.now();
+    if (isShooting && (!lastShootTime || currentTime - lastShootTime >= SHOOT_COOLDOWN)) {
+        const playerRect = player.getBoundingClientRect();
+        createBullet(playerRect.left + 15, playerRect.bottom + 40);
+        lastShootTime = currentTime;
+    }
+}
+
 function moveBullets() {
     bullets.forEach((bullet, index) => {
         const bottom = parseInt(bullet.style.bottom, 10);
@@ -88,9 +98,7 @@ function moveEnemies() {
         const top = parseInt(enemy.style.top, 10);
 
         if (top + hOffset > window.innerHeight - 80) {
-            // Уменьшаем жизни
-            gameData.lives--;
-            gameData.status = 'dead';
+            gameData.lives = 0;
             return;
         }
 
@@ -108,7 +116,6 @@ function moveEnemies() {
         hOffset = 0;
     }
 }
-
 
 function checkCollisions() {
     bullets.forEach((bullet, bulletIndex) => {
@@ -129,7 +136,6 @@ function checkCollisions() {
     });
 }
 
-
 function movePlayer() {
     if (player) {
         const left = parseInt(player.style.left, 10);
@@ -143,23 +149,10 @@ function movePlayer() {
 function checkGameStatus() {
     if (gameData.lives <= 0) {
         // Если жизней не осталось - Game Over
+        cancelAnimationFrame(animationFrameId);
+        //isPaused = true;
         alert('Game Over!');
-
-        // Полный сброс игры
-        isPaused = false;
-        gameData = {
-            score: 0,
-            lives: 3,
-            level: 1,
-            gameTime: 0,
-            status: 'alive'
-        };
-        startLevel(1);
-    } else if (gameData.status === 'dead') {
-        // Если жизни остались - перезапускаем уровень
-        alert(`You lost a life! Lives left: ${gameData.lives}`);
-        gameData.status = 'alive'
-        startLevel(gameData.level);
+        return 'fail'
     }
 
     if (enemies.length === 0) {
@@ -168,33 +161,18 @@ function checkGameStatus() {
 
         if (gameData.level >= Object.keys(LEVELS).length) {
             // Если прошли все уровни
+            //isPaused = true;
             alert('Congratulations! You have completed the game!');
+            return 'win'
 
-            // Полный сброс игры
-            gameData = {
-                score: 0,
-                lives: 3,
-                level: 1,
-                gameTime: 0,
-                status: 'alive'
-            };
-            startLevel(1);
         } else {
             // Переход на следующий уровень
             alert(`Level ${gameData.level} passed!`);
             gameData.level++;
-            startLevel(gameData.level);
+            return 'next'
         }
     }
 
-    // Check for game-ending conditions
-    if (gameData.lives <= 0) {
-        isPaused = true;
-        alert('Game Over!');
-        resetGame();
-        return;
-    }
-    
 }
 
 function gameLoop(timestamp) {
@@ -212,15 +190,28 @@ function gameLoop(timestamp) {
 
     if (!isPaused) {
         gameData.gameTime += deltaTime;
+
         updateHUD();
+        shoot();
         moveBullets();
         moveEnemies();
         checkCollisions();
-        if (checkGameStatus() === 'stop') {
-            cancelAnimationFrame(animationFrameId);
-            pauseGame();
-        }
         movePlayer();
+        switch (checkGameStatus()) {
+            case 'fail':
+                // gameOver();
+                resetGame();
+                startLevel(1);
+                break;
+            case 'win':
+                // win();
+                resetGame();
+                startLevel(1);
+                break;
+            case 'next':
+                startLevel(gameData.level);
+                break;
+        }
     }
 
     animationFrameId = requestAnimationFrame(gameLoop);
@@ -243,7 +234,7 @@ function createHUD() {
     game.appendChild(hud);
 }
 
-function startLevel(level) {
+function startLevel(level = 1) {
     // Очистка игрового поля
     if (player) player.remove();
     enemies.forEach(enemy => enemy.remove());
@@ -251,14 +242,13 @@ function startLevel(level) {
     enemies = [];
     bullets = [];
 
-    // Установка уровня
-    gameData.level = level;
+    isShooting = false;
 
     // Создание игровых элементов
     createPlayer();
 
     // Получаем конфигурацию текущего уровня
-    const levelConfig = LEVELS[level] || LEVELS[1];
+    const levelConfig = LEVELS[level];
 
     // Создаем врагов
     for (let i = 0; i < 10; i++) {
@@ -268,13 +258,11 @@ function startLevel(level) {
     // Устанавливаем скорость врагов
     ENEMY_SPEED = levelConfig.speed;
 
-    // Обновляем HUD
+    // создаем HUD
     createHUD();
 
     // Запускаем игровой цикл
     lastFrameTime = 0;
-    gameLoop();
-    //requestAnimationFrame(gameLoop);
 }
 
 function pauseGame() {
@@ -288,28 +276,6 @@ function resumeGame() {
     pauseMenu.style.display = 'none';
 }
 
-// Перезапуск игры
-function restartGame(nextLevel = false) {
-    if (gameState.isRestarting) return;
-
-    gameState.isRestarting = true;
-    cancelAnimationFrame(animationFrameId);
-
-    isPaused = false;
-    pauseMenu.style.display = 'none';
-    player.remove();
-    enemies.forEach((enemy) => enemy.remove());
-    bullets.forEach((bullet) => bullet.remove());
-    enemies = [];
-    bullets = [];
-
-    if (nextLevel) {
-        startLevel(gameData.level + 1);
-    } else {
-        // Если это не переход на следующий уровень, начинаем с первого уровня
-        startLevel(1);
-    }
-}
 
 // Обработка нажатий клавиш
 document.addEventListener('keydown', (e) => {
@@ -318,9 +284,7 @@ document.addEventListener('keydown', (e) => {
     } else if (e.key === 'ArrowRight') {
         playerDirection = 1;
     } else if (e.key === ' ') { // Пробел для стрельбы
-        console.log('Space pressed')
-        const playerRect = player.getBoundingClientRect();
-        createBullet(playerRect.left + 15, playerRect.bottom + 40); // Пуля появляется выше игрока
+        isShooting = true;
     } else if (e.key === 'Escape') { // Пауза по Escape
         if (isPaused) {
             resumeGame();
@@ -334,7 +298,15 @@ document.addEventListener('keyup', (e) => {
     if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
         playerDirection = 0;
     }
+    if (e.key === ' ') {
+        isShooting = false;
+    }
 });
+
+// Обновим обработчики кнопок
+resumeButton.addEventListener('click', resumeGame);
+restartButton.addEventListener('click', resetGame);
+
 
 // Добавим функцию для обновления HUD
 function updateHUD() {
@@ -345,26 +317,17 @@ function updateHUD() {
     document.getElementById('level').textContent = `Level: ${gameData.level}`;
 }
 
-// Обновим обработчики кнопок
-resumeButton.addEventListener('click', resumeGame);
-restartButton.addEventListener('click', resetGame);
 
 // Добавим функцию resetGame для полного сброса
 function resetGame() {
-    // Останавливаем игровой цикл
-    cancelAnimationFrame(animationFrameId);
-
     // Сбрасываем все данные
     gameData = {
         score: 0,
         lives: 3,
         level: 1,
         gameTime: 0,
-        status: 'alive'
     };
-
-    // Запускаем первый уровень
-    startLevel(1);
 }
 
-resetGame();
+startLevel(1);
+requestAnimationFrame(gameLoop);
