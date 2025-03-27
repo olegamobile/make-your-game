@@ -65,7 +65,7 @@ function createBullet(x, y) {
     const bullet = document.createElement('div');
     bullet.classList.add('bullet');
     bullet.style.left = `${x}px`;
-    bullet.style.bottom = `0px`;
+    bullet.style.bottom = `${y}px`;
     game.appendChild(bullet);
     bullets.push(bullet);
 }
@@ -74,7 +74,7 @@ function shoot() {
     const currentTime = Date.now();
     if (isShooting && (!lastShootTime || currentTime - lastShootTime >= SHOOT_COOLDOWN)) {
         const playerRect = player.getBoundingClientRect();
-        createBullet(playerRect.left + 15, playerRect.bottom + 40);
+        createBullet(playerRect.left + 50, 100);
         lastShootTime = currentTime;
     }
 }
@@ -146,6 +146,8 @@ function movePlayer() {
     }
 }
 
+
+
 function checkGameStatus() {
     if (gameData.lives <= 0) {
         // Если жизней не осталось - Game Over
@@ -161,7 +163,7 @@ function checkGameStatus() {
 
         if (gameData.level >= Object.keys(LEVELS).length) {
             // Если прошли все уровни
-            //isPaused = true;
+            isPaused = true;
             alert('Congratulations! You have completed the game!');
             return 'win'
 
@@ -243,6 +245,7 @@ function startLevel(level = 1) {
     bullets = [];
 
     isShooting = false;
+    playerDirection = 0;
 
     // Создание игровых элементов
     createPlayer();
@@ -252,7 +255,7 @@ function startLevel(level = 1) {
 
     // Создаем врагов
     for (let i = 0; i < 10; i++) {
-        createEnemy(i * 40, 50);
+        createEnemy(i * 50, 50);
     }
 
     // Устанавливаем скорость врагов
@@ -267,13 +270,24 @@ function startLevel(level = 1) {
 
 function pauseGame() {
     isPaused = true;
+    pauseMenu.style.opacity = '0';
     pauseMenu.style.display = 'block';
+    pauseMenu.style.transition = 'opacity 0.3s ease-in';
+    
+    setTimeout(() => {
+        pauseMenu.style.opacity = '1';
+    }, 10);
+    
     lastFrameTime = 0;
 }
 
 function resumeGame() {
-    isPaused = false;
-    pauseMenu.style.display = 'none';
+    pauseMenu.style.opacity = '0';
+    
+    setTimeout(() => {
+        pauseMenu.style.display = 'none';
+        isPaused = false;
+    }, 300);
 }
 
 

@@ -12,16 +12,22 @@ body {
     position: absolute;
 }
 .player {
-    width: 0;
-    height: 0;
-    border-left: 20px solid transparent;
+    /* width: 0;
+    height: 0; */
+    /* border-left: 20px solid transparent;
     border-right: 20px solid transparent;
-    border-bottom: 40px solid blue;
+    border-bottom: 40px solid blue; */
+    width: 100px;
+    height: 100px;
+    background: url('whiskas.png');
+    background-size: 100% 100%;
 }
 .enemy {
-    width: 30px;
-    height: 30px;
-    background-color: red;
+    width: 40px;
+    height: 40px;
+    /* background-color: red; */
+    background: url('pop-cat.gif');
+    background-size: 100% 100%;
 }
 .bullet {
     width: 10px;
