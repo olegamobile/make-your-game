@@ -3,47 +3,66 @@ body {
     overflow: hidden;
     background-color: rgb(7, 6, 6);
 }
+
 #game {
     position: relative;
     width: 100vw;
     height: 100vh;
 }
-.player, .enemy, .bullet {
+
+.player,
+.enemy,
+.bullet,
+.enemy-bullet {
     position: absolute;
 }
+
 .player {
-    /* width: 0;
-    height: 0; */
-    /* border-left: 20px solid transparent;
-    border-right: 20px solid transparent;
-    border-bottom: 40px solid blue; */
-    width: 100px;
+    width: 56px;
     height: 100px;
-    background: url('whiskas.png');
+    background: url('images/whiskas.png');
     background-size: 100% 100%;
 }
+
 .enemy {
-    width: 40px;
-    height: 40px;
-    /* background-color: red; */
-    background: url('pop-cat.gif');
+    width: 50px;
+    height: 50px;
+    background: url('images/pop-cat.gif');
     background-size: 100% 100%;
 }
+
 .bullet {
     width: 10px;
     height: 10px;
-    background-color: yellow;
+    background-color: rgb(122, 59, 0);
     border-radius: 50%;
 }
+
+.enemy-bullet {
+    width: 20px;
+    height: 20px;
+    font-size: larger;
+    /* background-color: rgb(255, 0, 0); */
+    border-radius: 50%;
+}
+
 #pause-menu {
     position: absolute;
     top: 50%;
     left: 50%;
+    padding: 20px;
+    max-width: 300px;
     transform: translate(-50%, -50%);
     color: white;
+    background: grey;
+    border-color: white;
+    border-radius: 10px;
+    border-width: 2px;
     text-align: center;
     display: none;
+    z-index: 100;
 }
+
 #hud {
     position: fixed;
     top: 10px;
@@ -54,6 +73,10 @@ body {
     z-index: 100;
 }
 
-#hud > div {
+#hud>div {
     margin-bottom: 5px;
+}
+
+#popup-text {
+    margin-bottom: 15px;
 }
