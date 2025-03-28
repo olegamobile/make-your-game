@@ -5,22 +5,20 @@ const restartButton = document.getElementById('restart');
 const popupTitle = document.getElementById('popup-title');
 const popupText = document.getElementById('popup-text');
 
-// Определяем константы в начале
 const PLAYER_SPEED = 5;
 const SHOOT_COOLDOWN = 200; // 200 ms between player shoots
+const SHOOT_CHANCE = 300 // sets chance of enemy shoot to 1/x
 
-// Изменим конфигурацию уровней - всегда 10 врагов, но разная скорость
 const LEVELS = {
-    1: { enemies: 10, speed: 5, },
-    2: { enemies: 10, speed: 7 },
-    3: { enemies: 20, speed: 9 },
-    4: { enemies: 20, speed: 11 },
-    5: { enemies: 30, speed: 13 }
+    1: { enemies: 10, speed: 5, maxBullets: 10 },
+    2: { enemies: 10, speed: 7, maxBullets: 10 },
+    3: { enemies: 20, speed: 9, maxBullets: 15 },
+    4: { enemies: 20, speed: 11, maxBullets: 20 },
+    5: { enemies: 30, speed: 13, maxBullets: 20 }
 };
 
-// Затем определяем переменные
 let ENEMY_SPEED = 5;
-
+let MAX_BULLETS = 10;
 let player;
 let enemies = [];
 let bullets = [];
@@ -30,8 +28,9 @@ let isShooting = false;
 let isPaused = false;
 let animationFrameId;
 let enemyDirection = 1; // from lefgt to right
-let hOffset = 0;
-let playerDirection = 0;
+let playerDirection = 0; // is not moving until arrows are pressed
+let hOffset = 0; // h-axis offset when enemies go down
+
 let gameData = {
     score: 0,
     lives: 3,
@@ -39,10 +38,7 @@ let gameData = {
     gameTime: 0,
     hit: false
 };
-let gameState = {
-    level: 1,
-    isRestarting: false
-};
+
 let lastFrameTime = 0;
 let fpsTime = 0;
 let frameCount = 0;
@@ -68,7 +64,6 @@ document.addEventListener('keydown', (e) => {
         }
     }
 });
-
 document.addEventListener('keyup', (e) => {
     if (e.key === 'ArrowLeft' && playerDirection === -1 || e.key === 'ArrowRight' && playerDirection === 1) {
         playerDirection = 0;
@@ -77,7 +72,14 @@ document.addEventListener('keyup', (e) => {
     }
 });
 
-window.addEventListener('resize', restartGame)
+// if window is resized restart the game
+window.addEventListener('resize', () => {
+    if (window.innerWidth < 800) {
+        pauseGame('please enlarge window width to 800px to start the game', '', '', '');
+    } else {
+        startGame();
+    }
+})
 
 function createPlayer() {
     player = document.createElement('div');
@@ -187,7 +189,7 @@ function moveEnemies() {
     let needChangeDirection = false;
     enemies.forEach(enemy => {
         const enemyRect = enemy.getBoundingClientRect();
-        if (enemyBullets.length < 10 && Math.random() < 1 / 300) {
+        if (enemyBullets.length < MAX_BULLETS && Math.random() < 1 / SHOOT_CHANCE) {
             createEnemyBullet(enemyRect.left + 20, window.innerHeight - enemyRect.bottom);
         }
         const left = parseInt(enemy.style.left, 10);
@@ -336,18 +338,16 @@ function gameLoop(timestamp) {
 
         switch (checkGameStatus()) {
             case 'fail':
-                // cancelAnimationFrame(animationFrameId);
                 pauseGame('Game over...', 'You have lost all your lives.', '', 'Try again');
                 break;
             case 'win':
-                // cancelAnimationFrame(animationFrameId);
                 pauseGame('You won!!!', 'Congratulations! You fed all the cats just in ' +
                     Math.round(gameData.gameTime) +
                     ' seconds, nobody is hungry now.', '', 'Play again');
                 break;
             case 'next':
-                // cancelAnimationFrame(animationFrameId);
-                pauseGame('Level ' + String(gameData.level - 1) + ' passed', 'Prepare for the next level', 'Continue', '');
+                pauseGame('Level ' + String(gameData.level - 1) + ' passed',
+                    'Prepare for the next level', 'Continue', '');
                 startLevel(gameData.level);
                 break;
         }
@@ -357,7 +357,7 @@ function gameLoop(timestamp) {
 }
 
 function startLevel(level = 1) {
-    // Очистка игрового поля
+    // Clear game field
     if (player) player.remove();
     enemies.forEach(enemy => enemy.remove());
     bullets.forEach(bullet => bullet.remove());
@@ -369,32 +369,19 @@ function startLevel(level = 1) {
     isShooting = false;
     playerDirection = 0;
 
-    // Создание игровых элементов
+    // Create game elements
+
     createPlayer();
-
-    // Получаем конфигурацию текущего уровня
     const levelConfig = LEVELS[level];
-
-    // Создаем врагов
     createEnemies(levelConfig.enemies);
-
-    // Устанавливаем скорость врагов
     ENEMY_SPEED = levelConfig.speed;
+    MAX_BULLETS = levelConfig.maxBullets;
 
-    // создаем HUD
     createHUD();
-
-    // Запускаем игровой цикл
     lastFrameTime = 0;
 }
 
 function pauseGame(title, text, resumeButtonText, restartButtonText) {
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            restartGame();
-            return;
-        }
-    }, { once: true });
 
     isPaused = true;
     if (resumeButtonText !== '') {
@@ -452,10 +439,18 @@ function restartGame() {
     resumeGame();
 }
 
-
-pauseGame('Feed the cat',
-    `The main goal is to feed all the cats. 
+function startGame() {
+    pauseGame('Feed the cat',
+        `The main goal is to feed all the cats. 
     Some of the cats are angry and poop on you, 
     you have to avoid poops. You have only 3 lives, be careful!`, '', 'Start your mission');
-startLevel(1);
+    startLevel(1);
+}
+
+if (window.innerWidth < 800) {
+    pauseGame('please enlarge window width to 800px to start the game', '', '', '');
+} else {
+    startGame();
+}
+
 requestAnimationFrame(gameLoop);
